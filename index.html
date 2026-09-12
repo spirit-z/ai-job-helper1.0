@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>AI求职助手·多岗位版</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#171717;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.app{max-width:720px;margin:auto;padding:env(safe-area-inset-top) 14px 30px}header{padding:20px 4px 10px}h1{font-size:25px;margin:0 0 5px}.sub,.small{font-size:13px;color:#777;line-height:1.5}
+.card{background:#fff;border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 2px 12px #0000000d}.upload{border:2px dashed #ccc;border-radius:15px;padding:25px 15px;text-align:center}.upload input{display:none}.pick{display:inline-block;background:#111;color:#fff;padding:12px 18px;border-radius:11px;font-weight:650}
+button{width:100%;padding:13px;border:0;border-radius:12px;background:#111;color:#fff;font-size:16px;font-weight:650;margin-top:10px}.secondary{background:#eee;color:#222}
+.preview{display:flex;gap:8px;overflow-x:auto;margin-top:12px}.thumbbox{position:relative;flex:none}.thumb{width:90px;height:120px;object-fit:cover;border-radius:8px;border:1px solid #ddd}.num{position:absolute;left:5px;top:5px;background:#111;color:#fff;border-radius:7px;padding:3px 6px;font-size:11px}
+.switch{display:flex;gap:8px;margin-top:12px}.mode{flex:1;border:1px solid #ddd;background:#fff;color:#222;padding:10px 8px;border-radius:10px;font-size:13px}.mode.active{background:#111;color:#fff}
+.job{border:1px solid #eee;border-radius:14px;padding:14px;margin-top:10px}.top{display:flex;justify-content:space-between;gap:10px}.title{font-weight:700;line-height:1.4}.score{font-size:22px;font-weight:800}.green{color:#147a3d}.orange{color:#9a6200}.red{color:#b42318}.badge{display:inline-block;background:#f1f2f4;border-radius:7px;padding:5px 7px;margin:5px 4px 0 0;font-size:12px}.msg{background:#f7f7f8;border-radius:10px;padding:11px;font-size:13px;line-height:1.55;margin-top:10px}
+hr{border:0;border-top:1px solid #eee;margin:14px 0}pre{white-space:pre-wrap;font-size:12px;line-height:1.45}
+</style>
+</head>
+<body><div class="app">
+<header><h1>AI求职助手 · 多岗位版</h1><div class="sub">现在支持：一次上传多张 BOSS 截图，并分别识别成多个岗位。</div></header>
+
+<div class="card">
+<div class="upload"><label class="pick">📸 选择岗位截图<input id="files" type="file" accept="image/*" multiple></label><div class="small" style="margin-top:10px">例如一次选 10 张不同岗位截图 → 最后得到 10 个岗位结果。</div></div>
+<div id="preview" class="preview"></div>
+<div class="switch">
+<button id="indBtn" class="mode active" onclick="setMode('ind')">每张截图＝一个岗位</button>
+<button id="mergeBtn" class="mode" onclick="setMode('merge')">多张截图＝同一岗位</button>
+</div>
+<div id="status" class="small" style="margin-top:10px"></div>
+<button onclick="runOCR()">识别并筛选</button><button class="secondary" onclick="clearAll()">清空</button>
+</div>
+
+<div id="out"></div>
+
+<div class="card"><b>推荐用法</b>
+<p class="small">如果你在BOSS上每截一个岗位就保存一张截图，选择“每张截图＝一个岗位”。如果一个岗位的JD很长、你连续截了2～3张，再选择“多张截图＝同一岗位”。</p>
+<p class="small">当前版本不会自动操作BOSS账号。OCR在浏览器本地处理；复杂截图、很小字体可能识别不准，重要信息请人工核对。</p></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+let imgs=[],mode='ind';
+document.getElementById('files').onchange=e=>{
+ imgs=[...e.target.files];let p=document.getElementById('preview');p.innerHTML='';
+ imgs.forEach((f,i)=>{let b=document.createElement('div');b.className='thumbbox';b.innerHTML='<img class="thumb" src="'+URL.createObjectURL(f)+'"><span class="num">'+(i+1)+'</span>';p.appendChild(b)});
+ document.getElementById('status').innerText='已选择 '+imgs.length+' 张截图';
+};
+function setMode(m){mode=m;document.getElementById('indBtn').classList.toggle('active',m==='ind');document.getElementById('mergeBtn').classList.toggle('active',m==='merge')}
+const tech=['AI','AIGC','SaaS','软件','企业服务','数字化','智能制造','半导体','芯片','电子元器件','自动化','科技','大模型','数据服务'];
+const roles=['商务','BD','客户成功','客户运营','销售支持','销售运营','项目助理','项目专员','产品助理','产品运营','售前','解决方案','渠道','实施顾问','实施专员'];
+const bad=['每日100通','每天100通','100+电话','100个电话','电话量KPI','纯电销','陌生电话','电话邀约','日均电话','电话考核','卖课','课程销售','招生','贷款','金融电销'];
+const red=['押金','保证金','培训费','先交钱','收费入职','购买设备'];
+function score(t){let s=50,p=[],r=[],x=t.toLowerCase();
+if(tech.some(k=>x.includes(k.toLowerCase()))){s+=18;p.push('科技/AI/半导体')}
+if(roles.some(k=>x.includes(k.toLowerCase()))){s+=12;p.push('商务/客户/项目')}
+if(/企业客户|b2b|工厂|品牌商|企业用户/.test(x)){s+=12;p.push('B2B/企业客户')}
+if(/公司提供|客户资源|客户线索|线索/.test(x)){s+=8;p.push('公司提供线索')}
+if(/培训|带教|新人/.test(x)){s+=4;p.push('有培训/带教')}
+if(/经验不限|无经验|接受应届|大专|本科优先|不限学历/.test(x)){s+=3;p.push('经验/学历门槛友好')}
+let b=bad.filter(k=>x.includes(k.toLowerCase()));if(b.length){s-=Math.min(42,b.length*14);r.push('高电话量/纯电销：'+b.join('、'))}
+let q=red.filter(k=>x.includes(k.toLowerCase()));if(q.length){s-=60;r.push('收费/押金风险：'+q.join('、'))}
+if(/卖课|课程销售|招生/.test(x)){s-=25;r.push('疑似培训/课程销售')}
+if(/无责底薪|月入2万|月入3万|月入5万|高提成/.test(x)){s-=6;r.push('夸张招聘话术，建议核实')}
+s=Math.max(0,Math.min(100,s));return{s,p,r,label:s>=75?'🟢 建议投':s>=58?'🟡 继续了解':'🔴 优先跳过',c:s>=75?'green':s>=58?'orange':'red'}}
+function msg(){return '您好，我对贵司这个岗位比较感兴趣。我的经历更偏客户沟通和业务方向，目前希望往企业服务/科技行业发展。虽然没有完全对应的垂直行业经验，但愿意从商务沟通、客户跟进、项目协作等工作做起。想了解一下这个岗位主要是公司提供客户线索，还是以陌生开发为主？'}
+function esc(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function renderOne(text,i){let a=score(text),lines=text.split(/\n/).map(x=>x.trim()).filter(Boolean);let title=lines.slice(0,5).join(' · ')||('岗位 '+(i+1));
+return '<div class="card job"><div class="top"><div><div class="small">岗位 '+(i+1)+'</div><div class="title">'+esc(title.slice(0,100))+'</div></div><div class="score '+a.c+'">'+a.s+'</div></div><div class="'+a.c+'" style="font-weight:700;margin-top:5px">'+a.label+'</div><div>'+a.p.map(x=>'<span class="badge">＋'+esc(x)+'</span>').join('')+'</div>'+(a.r.length?'<div class="red" style="margin-top:8px">⚠ '+a.r.map(esc).join('<br>⚠ ')+'</div>':'<div class="green" style="margin-top:8px">暂无明显高风险关键词</div>')+'<div class="msg">'+esc(msg())+'</div><button class="secondary" onclick="copyIt(this)">复制开场话术</button><details style="margin-top:10px"><summary class="small">查看OCR文字</summary><pre>'+esc(text)+'</pre></details></div>'}
+function copyIt(b){navigator.clipboard.writeText(msg()).then(()=>b.innerText='已复制 ✓').catch(()=>b.innerText='请长按复制')}
+async function runOCR(){
+if(!imgs.length){alert('先选择岗位截图');return}
+let st=document.getElementById('status'),out=document.getElementById('out');out.innerHTML='';st.innerText='正在加载OCR……';
+try{
+let w=await Tesseract.createWorker('chi_sim+eng',1,{logger:m=>{if(m.status)st.innerText=m.status+' '+(m.progress?Math.round(m.progress*100)+'%':'')}});
+if(mode==='ind'){
+for(let i=0;i<imgs.length;i++){st.innerText='正在识别第 '+(i+1)+'/'+imgs.length+' 个岗位';let z=await w.recognize(imgs[i]);out.innerHTML+=renderOne(z.data.text,i)}
+}else{
+let text='';for(let i=0;i<imgs.length;i++){st.innerText='正在合并识别第 '+(i+1)+'/'+imgs.length+' 张';let z=await w.recognize(imgs[i]);text+=z.data.text+'\n'}out.innerHTML=renderOne(text,0)}
+await w.terminate();st.innerText='全部识别完成';
+}catch(e){st.innerText='识别失败：请检查网络或换清晰截图'}
+}
+function clearAll(){imgs=[];document.getElementById('files').value='';document.getElementById('preview').innerHTML='';document.getElementById('out').innerHTML='';document.getElementById('status').innerText=''}
+</script></body></html>
