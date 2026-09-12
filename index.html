@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI求职雷达</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#171717;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+main{max-width:720px;margin:auto;padding:18px 14px 32px}h1{margin:0 0 5px;font-size:27px}.sub,.small{color:#777;font-size:13px;line-height:1.5}
+.card{background:#fff;border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 2px 12px #0000000d}.upload{border:2px dashed #ccc;border-radius:15px;padding:26px 15px;text-align:center}.upload input{display:none}.pick{display:inline-block;background:#111;color:#fff;padding:13px 18px;border-radius:12px;font-weight:700}
+.preview{display:flex;gap:8px;overflow:auto;margin-top:12px}.thumb{width:88px;height:118px;object-fit:cover;border-radius:8px}.row{display:flex;gap:8px}.row button{flex:1}
+button{width:100%;border:0;border-radius:12px;padding:13px;background:#111;color:#fff;font-size:16px;font-weight:700;margin-top:10px}.secondary{background:#eee;color:#222}
+.result{border-radius:16px;padding:16px;border:1px solid #eee;margin-top:12px}.score{font-size:32px;font-weight:800}.green{color:#147a3d}.yellow{color:#9a6200}.red{color:#b42318}.pill{display:inline-block;padding:5px 8px;border-radius:8px;background:#f1f2f4;margin:4px 4px 0 0;font-size:12px}.section{margin-top:14px}.section b{display:block;margin-bottom:6px}.err{background:#fff0f0;color:#a00;padding:12px;border-radius:10px}
+</style>
+</head>
+<body><main>
+<h1>AI求职雷达</h1><div class="sub">豆包视觉 AI 版：直接理解 BOSS 招聘截图。</div>
+<div class="card">
+<div class="upload"><label class="pick">📸 选择岗位截图<input id="files" type="file" accept="image/png,image/jpeg,image/webp" multiple></label><div class="small" style="margin-top:10px">可一次选择多张截图。</div></div>
+<div id="preview" class="preview"></div>
+<div class="row"><button class="secondary" onclick="clearFiles()">清空</button><button onclick="analyze()">开始分析</button></div>
+<div id="status" class="small" style="margin-top:10px"></div>
+</div>
+<div id="out"></div>
+<div class="card"><b>筛选重点</b><div class="small">优先 AI/AIGC/SaaS/半导体/企业服务/B2B，以及商务、BD、客户成功、项目、售前、解决方案等可迁移岗位。警惕纯电销、高电话量、卖课、收费入职等。</div></div>
+</main>
+<script>
+let files=[];
+document.getElementById('files').onchange=e=>{files=[...e.target.files];let p=document.getElementById('preview');p.innerHTML='';files.forEach(f=>{let im=document.createElement('img');im.className='thumb';im.src=URL.createObjectURL(f);p.appendChild(im)});document.getElementById('status').textContent=`已选择 ${files.length} 张截图`};
+function clearFiles(){files=[];document.getElementById('files').value='';document.getElementById('preview').innerHTML='';document.getElementById('out').innerHTML='';document.getElementById('status').textContent=''}
+async function analyze(){if(!files.length){alert('先选择截图');return}document.getElementById('out').innerHTML='<div class="card" style="text-align:center;color:#666">豆包正在分析截图……</div>';let fd=new FormData();files.forEach(f=>fd.append('images',f));try{let r=await fetch('/api/analyze',{method:'POST',body:fd});let d=await r.json();if(!r.ok)throw Error(d.error||'分析失败');render(d)}catch(e){document.getElementById('out').innerHTML='<div class="card err">'+esc(e.message)+'</div>'}}
+function render(d){let h='<div class="card"><b>分析结果</b>';(d.jobs||[]).forEach((j,i)=>{let c=j.recommendation==='投'?'green':j.recommendation==='先问HR'?'yellow':'red';h+=`<div class="result"><div class="small">岗位 ${i+1}</div><div style="display:flex;justify-content:space-between;gap:8px"><div><b>${esc(j.job_title||'未识别')}</b><div class="small">${esc(j.company||'公司未识别')}</div></div><div class="score ${c}">${j.score??0}</div></div><div class="${c}" style="font-weight:800;margin-top:5px">${esc(j.recommendation||'')}</div><div>${(j.fit_reasons||[]).map(x=>`<span class="pill">＋${esc(x)}</span>`).join('')}</div>${j.risks?.length?`<div class="section red"><b>⚠ 风险</b>${j.risks.map(x=>`<div>· ${esc(x)}</div>`).join('')}</div>`:''}<div class="section"><b>公司核查</b><div class="small">${esc(j.company_check||'未核实')}</div></div><div class="section"><b>为什么适合/不适合</b><div class="small">${esc(j.personal_fit||'')}</div></div><div class="section"><b>建议问HR</b><div class="small">${esc(j.hr_question||'')}</div></div><div class="section"><b>开场话术</b><div class="small">${esc(j.message||'')}</div><button class="secondary" onclick='navigator.clipboard.writeText(${JSON.stringify(j.message||"")}).then(()=>this.textContent="已复制 ✓")'>复制话术</button></div></div>`});h+='</div>';document.getElementById('out').innerHTML=h}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+</script></body></html>
